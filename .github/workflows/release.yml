@@ -1,80 +1,80 @@
 name: Release
 on:
-  workflow_dispatch:
-    inputs:
-      release-version:
-        description: "(WARNING: WILL TRIGGER A RELEASE) Release version e.g. v0.0.1"
-        required: true
-        type: string
+    workflow_dispatch:
+        inputs:
+            release-version:
+                description: "(WARNING: WILL TRIGGER A RELEASE) Release version e.g. v0.0.1"
+                required: true
+                type: string
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ["ubuntu-latest", "macos-latest"]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Setup Go 1.18
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.18
-      - name: Check out project files
-        uses: actions/checkout@v2
-      - name: Extract version metadata
-        id: meta
-        shell: bash
-        run: |
-          version=${{ github.event.inputs.release-version }}
-          echo "user triggered release ${version}"
-          
-          # =~ is bash regex operator 
-          if [[ ! "$version" =~ ^v{1}[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "invalid tag version $version (must be of form vX.X.X), exiting"
-            exit 1
-          fi
-          if [ $(git tag -l "$version") ]; then
-            echo "tag $version already exists, exiting"
-            exit 1
-          fi
-          echo "::set-output name=version::${version}"
-          echo "::set-output name=os_arch::$(go env GOOS)-$(go env GOARCH)"
-      - name: Create macos dist
-        if: ${{ matrix.os == 'macos-latest' }}
-        env:
-          version: ${{ steps.meta.outputs.version }}
-        run: |
-          export PATH=$PATH:$(go env GOPATH)/bin
-          make default package VERSION="$version"
-      - name: Create portable linux dist
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        env:
-          version: ${{ steps.meta.outputs.version }}
-        run: |
-          export PATH=$PATH:$(go env GOPATH)/bin
-          make default package VERSION="$version" extraldflags='-linkmode external -extldflags "-static"'
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ steps.meta.outputs.os_arch }}-artifacts
-          path: |
-            build/dist/*.zip
-            build/dist/*.zip.checksum
+    build:
+        name: Build on ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ "ubuntu-latest", "macos-latest" ]
+        runs-on: ${{ matrix.os }}
+        steps:
+            -   name: Setup Go 1.18
+                uses: actions/setup-go@v1
+                with:
+                    go-version: 1.18
+            -   name: Check out project files
+                uses: actions/checkout@v2
+            -   name: Extract version metadata
+                id: meta
+                shell: bash
+                run: |
+                    version=${{ github.event.inputs.release-version }}
+                    echo "user triggered release ${version}"
+                    
+                    # =~ is bash regex operator 
+                    if [[ ! "$version" =~ ^v{1}[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                      echo "invalid tag version $version (must be of form vX.X.X), exiting"
+                      exit 1
+                    fi
+                    if [ $(git tag -l "$version") ]; then
+                      echo "tag $version already exists, exiting"
+                      exit 1
+                    fi
+                    echo "::set-output name=version::${version}"
+                    echo "::set-output name=os_arch::$(go env GOOS)-$(go env GOARCH)"
+            -   name: Create macos dist
+                if: ${{ matrix.os == 'macos-latest' }}
+                env:
+                    version: ${{ steps.meta.outputs.version }}
+                run: |
+                    export PATH=$PATH:$(go env GOPATH)/bin
+                    make default package VERSION="$version"
+            -   name: Create portable linux dist
+                if: ${{ matrix.os == 'ubuntu-latest' }}
+                env:
+                    version: ${{ steps.meta.outputs.version }}
+                run: |
+                    export PATH=$PATH:$(go env GOPATH)/bin
+                    make default package VERSION="$version" extraldflags='-linkmode external -extldflags "-static"'
+            -   name: Upload artifacts
+                uses: actions/upload-artifact@v3
+                with:
+                    name: ${{ steps.meta.outputs.os_arch }}-artifacts
+                    path: |
+                        build/dist/*.zip
+                        build/dist/*.zip.checksum
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: dists
-      - name: Display structure of downloaded files
-        run: ls -R dists
-      - name: Tag & release
-        uses: ncipollo/release-action@v1.10.0
-        with:
-          commit: master
-          tag: ${{ github.event.inputs.release-version }}
-          artifacts: "**/*.zip,**/*.zip.checksum"
-          body: "Release ${{ github.event.inputs.release-version }}"
+    release:
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            -   name: Download artifacts
+                uses: actions/download-artifact@v3
+                with:
+                    path: dists
+            -   name: Display structure of downloaded files
+                run: ls -R dists
+            -   name: Tag & release
+                uses: ncipollo/release-action@v1.10.0
+                with:
+                    commit: master
+                    tag: ${{ github.event.inputs.release-version }}
+                    artifacts: "**/*.zip,**/*.zip.checksum"
+                    body: "Release ${{ github.event.inputs.release-version }}"
