@@ -8,7 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	util "github.com/ConsenSys/quorum-go-utils/account"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	geCrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -125,38 +126,38 @@ func (b *backend) createAccount(ctx context.Context, req *logical.Request, d *fr
 }
 
 func generateAccount() (*hexAccountData, error) {
-	key, err := util.GenerateKey()
+	key, err := geCrypto.GenerateKey()
 	if err != nil {
 		return nil, err
 	}
-	defer util.ZeroKey(key)
 
 	return keyToHexAccountData(key)
 }
 
 func rawKeyToHexAccountData(rawKey string) (*hexAccountData, error) {
-	key, err := util.NewKeyFromHexString(rawKey)
+	key, err := geCrypto.HexToECDSA(rawKey)
 	if err != nil {
 		return nil, err
 	}
-	defer util.ZeroKey(key)
 
 	return keyToHexAccountData(key)
 }
 
 func keyToHexAccountData(key *ecdsa.PrivateKey) (*hexAccountData, error) {
-	addr, err := util.PrivateKeyToAddress(key)
-	if err != nil {
-		return nil, err
+	publicKey := key.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, errors.New("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
 	}
+	addr := geCrypto.PubkeyToAddress(*publicKeyECDSA)
 
-	hexKey, err := util.PrivateKeyToHexString(key)
-	if err != nil {
-		return nil, err
+	var hexKey = hexutil.Encode(geCrypto.FromECDSA(key))
+	if hexKey == "" {
+		return nil, errors.New("unable to encode private key to hex string")
 	}
 
 	return &hexAccountData{
-		HexAddress: addr.ToHexString(),
+		HexAddress: addr.String(),
 		HexKey:     hexKey,
 	}, nil
 }
@@ -215,13 +216,12 @@ func (b *backend) sign(ctx context.Context, req *logical.Request, d *framework.F
 
 	b.Logger().Info("retrieved account for signing")
 
-	key, err := util.NewKeyFromHexString(*hexKey)
+	key, err := geCrypto.HexToECDSA(*hexKey)
 	if err != nil {
 		return nil, err
 	}
-	defer util.ZeroKey(key)
 
-	sig, err := util.Sign(toSignByt, key)
+	sig, err := geCrypto.Sign(toSignByt, key)
 	if err != nil {
 		return nil, fmt.Errorf("unable to sign data: %v", err)
 	}

@@ -4,7 +4,7 @@ The Quorum Signer plugin is a [custom plugin backend for Hashicorp Vault](https:
 
 The `quorum-signer` secret-engine creates and stores Quorum accounts that can be used to sign data.
 
-When used in conjunction with the [Hashicorp Vault plugin for Quorum](https://github.com/ConsenSys/quorum-account-plugin-hashicorp-vault), Quorum can sign transactions and data as normal, with the added security benefit that account private keys never leave the boundaries of Vault and never have to be directly managed.
+When used in conjunction with the [Hashicorp Vault plugin for Quorum](https://github.com/onyx-incubator/quorum-account-plugin-hashicorp-vault), Quorum can sign transactions and data as normal, with the added security benefit that account private keys never leave the boundaries of Vault and never have to be directly managed.
 
 ## Building
 ```shell

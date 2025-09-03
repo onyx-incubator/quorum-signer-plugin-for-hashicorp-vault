@@ -1,40 +1,61 @@
-OUTPUT_DIR := "$(shell pwd)/build"
-NAME := "quorum-signer"
-VERSION := "0.2.2-SNAPSHOT"
-OS_ARCH := "$(shell go env GOOS)-$(shell go env GOARCH)"
-BUILD_LD_FLAGS=-s -w $(extraldflags)
+# Refactored Makefile for better readability and maintainability
 
-default: clean tools checkfmt test build
+# Variables
+CURDIR := $(CURDIR)
+OUTPUT_DIR := $(CURDIR)/build
+DIST_DIR := $(OUTPUT_DIR)/dist
+NAME := quorum-signer
+VERSION := 0.2.2-SNAPSHOT
+OS_ARCH := $(shell go env GOOS)-$(shell go env GOARCH)
+BIN_PATH := $(DIST_DIR)/$(NAME)-$(VERSION)-$(OS_ARCH)
+BUILD_LD_FLAGS := -s -w $(extraldflags)
 
+# Phony targets
+.PHONY: default clean check-fmt fixfmt test build package tools
+
+default: clean tools check-fmt test build
+
+# Clean build artifacts
 clean:
-	@rm -rf ${OUTPUT_DIR}
+	@echo -------- Deleting build artifacts --------
+	@rm -rf $(OUTPUT_DIR)
 
-checkfmt: tools
-	@GO_FMT_FILES="$$(goimports -l `find . -name '*.go'`)"; \
-	test -z "$${GO_FMT_FILES}" || ( echo "Please run 'make fixfmt' to format the following files: \n$${GO_FMT_FILES}"; exit 1 )
+# Check Go formatting
+check-fmt: tools
+	@echo -------- Checking Go formatting --------
+	@GO_FMT_FILES="$(shell goimports -l $(shell find . -type f -name '*.go'))"; \
+	test -z "$$GO_FMT_FILES" || ( echo "Please run 'make fixfmt' to format the following files:\n$$GO_FMT_FILES"; exit 1 )
 
+# Fix Go formatting
 fixfmt: tools
-	@goimports -w `find . -name '*.go'`
+	@echo -------- Fixing Go formatting --------
+	@goimports -w $(shell find . -type f -name '*.go')
 
-test:
+# Run tests
+ test:
+	@echo -------- Running tests --------
 	GOFLAGS="-mod=readonly" go test ./...
 
+# Build binary
 build:
-	@mkdir -p ${OUTPUT_DIR}
-	@echo Output to ${OUTPUT_DIR}
+	@echo -------- Building binary\(ies\) --------
+	@mkdir -p $(DIST_DIR)
+	@echo ==\> Output to $(DIST_DIR)
 	@GOFLAGS="-mod=readonly" go build \
 		-ldflags='$(BUILD_LD_FLAGS)' \
-		-o "${OUTPUT_DIR}/dist/${NAME}-${VERSION}-${OS_ARCH}" \
+		-o $(BIN_PATH) \
 		.
 
+# Package binary and checksums
 package: build
-	@shasum -a 256 ${OUTPUT_DIR}/dist/${NAME}-${VERSION}-${OS_ARCH} | awk '{print $$1}' > ${OUTPUT_DIR}/dist/${NAME}-${VERSION}-${OS_ARCH}.checksum
-	@zip -j -FS -q ${OUTPUT_DIR}/dist/${NAME}-${VERSION}-${OS_ARCH}.zip ${OUTPUT_DIR}/dist/*
-	@shasum -a 256 ${OUTPUT_DIR}/dist/${NAME}-${VERSION}-${OS_ARCH}.zip | awk '{print $$1}' > ${OUTPUT_DIR}/dist/${NAME}-${VERSION}-${OS_ARCH}.zip.checksum
+	@echo -------- Packaging binary\(ies\) --------
+	@echo ==\> Creating checksum files
+	@shasum -a 256 $(BIN_PATH) | awk '{print $$1}' > $(BIN_PATH).checksum
+	@echo ==\> Creating zip archive
+	@zip -j -FS -q $(BIN_PATH).zip $(DIST_DIR)/*
+	@echo ==\> Creating zip checksum file
+	@shasum -a 256 $(BIN_PATH).zip | awk '{print $$1}' > $(BIN_PATH).zip.checksum
 
-tools: goimports
-
-goimports:
-ifeq (, $(shell which goimports))
-	@GO111MODULE=off go get -u golang.org/x/tools/cmd/goimports
-endif
+# Ensure goimports is available
+ tools:
+	@command -v goimports >/dev/null 2>&1 || { echo >&2 "goimports not installed. Installing..."; go install golang.org/x/tools/cmd/goimports@latest; }

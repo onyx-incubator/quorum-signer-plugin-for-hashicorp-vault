@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	util "github.com/ConsenSys/quorum-go-utils/account"
+	geCrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/require"
@@ -152,12 +152,12 @@ func TestCreateAccount_CreateNew(t *testing.T) {
 	err = keySE.DecodeJSON(&storedKey)
 	require.NoError(t, err)
 
-	key, err := util.NewKeyFromHexString(storedKey)
+	key, err := geCrypto.HexToECDSA(storedKey)
 	require.NoError(t, err)
-	addrFromKey, err := util.PrivateKeyToAddress(key)
-	require.NoError(t, err)
+	addrFromKey := geCrypto.FromECDSA(key)
+	require.NotNil(t, addrFromKey)
 
-	require.Equal(t, respAddr, addrFromKey.ToHexString())
+	require.Equal(t, respAddr, hex.EncodeToString(addrFromKey))
 }
 
 func TestCreateAccount_ImportExisting(t *testing.T) {
