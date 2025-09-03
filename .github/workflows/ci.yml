@@ -1,24 +1,24 @@
 name: CI
 on:
-    pull_request:
-        branches:
-            - master
+  pull_request:
+    branches:
+      - master
 jobs:
-    build:
-        name: Build on ${{ matrix.os }}
-        strategy:
-            fail-fast: false
-            matrix:
-                os: [ "ubuntu-latest", "macos-latest" ]
-        runs-on: ${{ matrix.os }}
-        steps:
-            -   name: Setup Go 1.18
-                uses: actions/setup-go@v1
-                with:
-                    go-version: 1.18
-            -   name: Check out project files
-                uses: actions/checkout@v2
-            -   name: Run `make`
-                run: |
-                    export PATH=$PATH:$(go env GOPATH)/bin
-                    make
+  build:
+    name: Build on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Setup Go 1.18
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.18
+      - name: Check out project files
+        uses: actions/checkout@v2
+      - name: Run `make`
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          make
