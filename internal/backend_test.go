@@ -12,7 +12,7 @@ import (
 
 func TestPathRoutingAndSupportedOperations(t *testing.T) {
 	b, err := BackendFactory(context.Background(), &logical.BackendConfig{})
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to create backend")
 
 	storage := &logical.InmemStorage{}
 
@@ -66,7 +66,7 @@ func TestPathRoutingAndSupportedOperations(t *testing.T) {
 				// sign/ requires request data
 				if strings.HasPrefix(tt.path, "sign/") {
 					req.Data = map[string]interface{}{
-						"sign": "7d15728d30727d67a3257e6bbd4724c4d31f830f017fd0e0d2d802c14bdf408d",
+						"sign": strings.ToLower("7d15728d30727d67a3257e6bbd4724c4d31f830f017fd0e0d2d802c14bdf408d"),
 					}
 				}
 
