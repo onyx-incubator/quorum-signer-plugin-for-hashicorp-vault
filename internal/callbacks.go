@@ -135,7 +135,7 @@ func generateAccount() (*hexAccountData, error) {
 }
 
 func rawKeyToHexAccountData(rawKey string) (*hexAccountData, error) {
-	key, err := geCrypto.HexToECDSA(rawKey)
+	key, err := geCrypto.HexToECDSA(strings.TrimPrefix(rawKey, "0x"))
 	if err != nil {
 		return nil, err
 	}
@@ -151,13 +151,13 @@ func keyToHexAccountData(key *ecdsa.PrivateKey) (*hexAccountData, error) {
 	}
 	addr := geCrypto.PubkeyToAddress(*publicKeyECDSA)
 
-	var hexKey = hexutil.Encode(geCrypto.FromECDSA(key))
+	var hexKey = strings.TrimPrefix(hexutil.Encode(geCrypto.FromECDSA(key)), "0x")
 	if hexKey == "" {
 		return nil, errors.New("unable to encode private key to hex string")
 	}
 
 	return &hexAccountData{
-		HexAddress: addr.String(),
+		HexAddress: strings.TrimPrefix(addr.String(), "0x"),
 		HexKey:     hexKey,
 	}, nil
 }
@@ -216,7 +216,7 @@ func (b *backend) sign(ctx context.Context, req *logical.Request, d *framework.F
 
 	b.Logger().Info("retrieved account for signing")
 
-	key, err := geCrypto.HexToECDSA(*hexKey)
+	key, err := geCrypto.HexToECDSA(strings.TrimPrefix(*hexKey, "0x"))
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +228,7 @@ func (b *backend) sign(ctx context.Context, req *logical.Request, d *framework.F
 
 	return &logical.Response{
 		Data: map[string]interface{}{
-			"sig": hex.EncodeToString(sig),
+			"sig": strings.TrimPrefix(hex.EncodeToString(sig), "0x"),
 		},
 	}, nil
 }

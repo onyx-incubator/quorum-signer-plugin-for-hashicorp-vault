@@ -11,25 +11,30 @@ BIN_PATH := $(DIST_DIR)/$(NAME)-$(VERSION)-$(OS_ARCH)
 BUILD_LD_FLAGS := -s -w $(extraldflags)
 
 # Phony targets
-.PHONY: default clean check-fmt fixfmt test build package tools
+.PHONY: all default clean check-fmt fixfmt test build package tools govulncheck
 
-default: clean tools check-fmt test build
+all: clean tools check-fmt fixfmt test build package govulncheck
+
+default: all
 
 # Clean build artifacts
 clean:
 	@echo -------- Deleting build artifacts --------
 	@rm -rf $(OUTPUT_DIR)
+    @echo ==\> Cleaned $(OUTPUT_DIR)
 
 # Check Go formatting
 check-fmt: tools
 	@echo -------- Checking Go formatting --------
 	@GO_FMT_FILES="$(shell goimports -l $(shell find . -type f -name '*.go'))"; \
 	test -z "$$GO_FMT_FILES" || ( echo "Please run 'make fixfmt' to format the following files:\n$$GO_FMT_FILES"; exit 1 )
+	@echo ==\> All Go files are properly formatted
 
 # Fix Go formatting
 fixfmt: tools
 	@echo -------- Fixing Go formatting --------
 	@goimports -w $(shell find . -type f -name '*.go')
+	@echo ==\> Go files have been formatted
 
 # Run tests
  test:
@@ -45,6 +50,7 @@ build:
 		-ldflags='$(BUILD_LD_FLAGS)' \
 		-o $(BIN_PATH) \
 		.
+	@echo ==\> Built $(BIN_PATH)
 
 # Package binary and checksums
 package: build
@@ -55,7 +61,17 @@ package: build
 	@zip -j -FS -q $(BIN_PATH).zip $(DIST_DIR)/*
 	@echo ==\> Creating zip checksum file
 	@shasum -a 256 $(BIN_PATH).zip | awk '{print $$1}' > $(BIN_PATH).zip.checksum
+	@echo ==\> Packaged $(BIN_PATH).zip and checksum files
 
 # Ensure goimports is available
  tools:
+	@echo -------- Ensuring required tools are installed --------
 	@command -v goimports >/dev/null 2>&1 || { echo >&2 "goimports not installed. Installing..."; go install golang.org/x/tools/cmd/goimports@latest; }
+	@echo ==\> All required tools are installed
+
+# Run govulncheck (Go vulnerability scanner)
+govulncheck: tools
+	@echo -------- Running govulncheck \(golang vulnerability scanner\) --------
+	@command -v govulncheck >/dev/null 2>&1 || { echo >&2 "govulncheck not installed. Installing..."; go install golang.org/x/vuln/cmd/govulncheck@latest; }
+	@govulncheck ./...
+	@echo ==\> govulncheck completed
