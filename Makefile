@@ -138,4 +138,3 @@ help:
 	@echo "  go-vulncheck - Run vulnerability scanner"
 	@echo "  tools      - Install required tools"
 	@echo "  help       - Show this help message"
-
