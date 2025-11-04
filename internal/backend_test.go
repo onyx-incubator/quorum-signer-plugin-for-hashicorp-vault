@@ -9,9 +9,250 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/require"
 )
+
+// TestBackendFactory_ErrorCases tests error handling in BackendFactory
+func TestBackendFactory_ErrorCases(t *testing.T) {
+	tests := map[string]struct {
+		ctx  context.Context
+		conf *logical.BackendConfig
+	}{
+		"nil context": {
+			ctx:  nil,
+			conf: &logical.BackendConfig{},
+		},
+		"nil config": {
+			ctx:  context.Background(),
+			conf: nil,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := BackendFactory(tt.ctx, tt.conf)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestBackendFactory_Success(t *testing.T) {
+	b, err := BackendFactory(context.Background(), &logical.BackendConfig{})
+	require.NoError(t, err)
+	require.NotNil(t, b)
+
+	backend, ok := b.(*backend)
+	require.True(t, ok)
+	require.NotNil(t, backend.Backend)
+}
+
+func TestValidateOperation(t *testing.T) {
+	b, err := BackendFactory(context.Background(), &logical.BackendConfig{})
+	require.NoError(t, err)
+	backend := b.(*backend)
+
+	storage := &logical.InmemStorage{}
+	d := &framework.FieldData{
+		Raw:    map[string]interface{}{},
+		Schema: map[string]*framework.FieldSchema{},
+	}
+
+	tests := map[string]struct {
+		ctx     context.Context
+		req     *logical.Request
+		d       *framework.FieldData
+		wantErr bool
+	}{
+		"valid operation": {
+			ctx: context.Background(),
+			req: &logical.Request{
+				Storage: storage,
+				Path:    "accounts/test",
+			},
+			d:       d,
+			wantErr: false,
+		},
+		"nil context": {
+			ctx: nil,
+			req: &logical.Request{
+				Storage: storage,
+				Path:    "accounts/test",
+			},
+			d:       d,
+			wantErr: true,
+		},
+		"nil request": {
+			ctx:     context.Background(),
+			req:     nil,
+			d:       d,
+			wantErr: true,
+		},
+		"nil storage": {
+			ctx: context.Background(),
+			req: &logical.Request{
+				Storage: nil,
+				Path:    "accounts/test",
+			},
+			d:       d,
+			wantErr: true,
+		},
+		"nil field data": {
+			ctx: context.Background(),
+			req: &logical.Request{
+				Storage: storage,
+				Path:    "accounts/test",
+			},
+			d:       nil,
+			wantErr: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := backend.validateOperation(tt.ctx, tt.req, tt.d)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidationWrappers(t *testing.T) {
+	b, err := BackendFactory(context.Background(), &logical.BackendConfig{})
+	require.NoError(t, err)
+	backend := b.(*backend)
+
+	storage := &logical.InmemStorage{}
+
+	// Test readAccountWithValidation
+	t.Run("readAccountWithValidation - nil context", func(t *testing.T) {
+		_, err := backend.readAccountWithValidation(nil, &logical.Request{Storage: storage}, &framework.FieldData{})
+		require.Error(t, err)
+	})
+
+	t.Run("readAccountWithValidation - valid", func(t *testing.T) {
+		// Store test account
+		entry, err := logical.StorageEntryJSON("accounts/test", "testaddr")
+		require.NoError(t, err)
+		err = storage.Put(context.Background(), entry)
+		require.NoError(t, err)
+
+		req := &logical.Request{
+			Storage: storage,
+			Path:    "accounts/test",
+		}
+		resp, err := backend.readAccountWithValidation(context.Background(), req, &framework.FieldData{})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+	})
+
+	// Test createAccountWithValidation
+	t.Run("createAccountWithValidation - nil context", func(t *testing.T) {
+		_, err := backend.createAccountWithValidation(nil, &logical.Request{Storage: storage}, &framework.FieldData{})
+		require.Error(t, err)
+	})
+
+	// Test updateAccountWithValidation
+	t.Run("updateAccountWithValidation - nil context", func(t *testing.T) {
+		_, err := backend.updateAccountWithValidation(nil, &logical.Request{Storage: storage}, &framework.FieldData{})
+		require.Error(t, err)
+	})
+
+	t.Run("updateAccountWithValidation - valid but unsupported", func(t *testing.T) {
+		_, err := backend.updateAccountWithValidation(context.Background(), &logical.Request{Storage: storage}, &framework.FieldData{})
+		require.Error(t, err)
+		require.ErrorIs(t, err, updateUnsupportedErr)
+	})
+
+	// Test listAccountIDsWithValidation
+	t.Run("listAccountIDsWithValidation - nil context", func(t *testing.T) {
+		_, err := backend.listAccountIDsWithValidation(nil, &logical.Request{Storage: storage}, &framework.FieldData{})
+		require.Error(t, err)
+	})
+
+	t.Run("listAccountIDsWithValidation - valid", func(t *testing.T) {
+		req := &logical.Request{
+			Storage: storage,
+			Path:    "accounts/",
+		}
+		resp, err := backend.listAccountIDsWithValidation(context.Background(), req, &framework.FieldData{})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+	})
+
+	// Test signWithValidation
+	t.Run("signWithValidation - nil context", func(t *testing.T) {
+		_, err := backend.signWithValidation(nil, &logical.Request{Storage: storage}, &framework.FieldData{})
+		require.Error(t, err)
+	})
+
+	// Test accountExistenceCheckWithValidation
+	t.Run("accountExistenceCheckWithValidation - nil context", func(t *testing.T) {
+		_, err := backend.accountExistenceCheckWithValidation(nil, &logical.Request{Storage: storage}, &framework.FieldData{})
+		require.Error(t, err)
+	})
+
+	t.Run("accountExistenceCheckWithValidation - valid", func(t *testing.T) {
+		req := &logical.Request{
+			Storage: storage,
+			Path:    "accounts/test",
+		}
+		exists, err := backend.accountExistenceCheckWithValidation(context.Background(), req, &framework.FieldData{})
+		require.NoError(t, err)
+		require.True(t, exists) // Should exist from earlier test
+	})
+}
+
+func TestAccountIDPath(t *testing.T) {
+	b, err := BackendFactory(context.Background(), &logical.BackendConfig{})
+	require.NoError(t, err)
+	backend := b.(*backend)
+
+	path := backend.accountIDPath()
+	require.NotNil(t, path)
+	require.NotEmpty(t, path.Pattern)
+	require.NotNil(t, path.Fields)
+	require.NotNil(t, path.Operations)
+	require.NotNil(t, path.ExistenceCheck)
+
+	// Verify required fields
+	require.Contains(t, path.Fields, "acctID")
+	require.Contains(t, path.Fields, "import")
+
+	// Verify operations exist in the map
+	_, hasRead := path.Operations[logical.ReadOperation]
+	require.True(t, hasRead, "ReadOperation should be present")
+	_, hasCreate := path.Operations[logical.CreateOperation]
+	require.True(t, hasCreate, "CreateOperation should be present")
+	_, hasUpdate := path.Operations[logical.UpdateOperation]
+	require.True(t, hasUpdate, "UpdateOperation should be present")
+	_, hasList := path.Operations[logical.ListOperation]
+	require.True(t, hasList, "ListOperation should be present")
+}
+
+func TestSignPath(t *testing.T) {
+	b, err := BackendFactory(context.Background(), &logical.BackendConfig{})
+	require.NoError(t, err)
+	backend := b.(*backend)
+
+	path := backend.signPath()
+	require.NotNil(t, path)
+	require.NotEmpty(t, path.Pattern)
+	require.NotNil(t, path.Fields)
+	require.NotNil(t, path.Operations)
+
+	// Verify required fields
+	require.Contains(t, path.Fields, "acctID")
+	require.Contains(t, path.Fields, "sign")
+
+	// Verify operations exist in the map
+	_, hasRead := path.Operations[logical.ReadOperation]
+	require.True(t, hasRead, "ReadOperation should be present")
+}
 
 // TestPathRoutingAndSupportedOperations verifies that all configured paths in the backend
 // correctly route requests and support their intended operations. This comprehensive test

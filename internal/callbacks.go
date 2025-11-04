@@ -82,12 +82,12 @@ func validateHexString(s string) bool {
 //   - bool: true if the account exists, false otherwise
 //   - error: Any error encountered during the existence check
 func (b *backend) accountExistenceCheck(ctx context.Context, req *logical.Request, _ *framework.FieldData) (bool, error) {
-	b.Logger().Info("performing existence check")
-
 	// Validate request using helper function
 	if err := validateRequest(ctx, req); err != nil {
 		return false, err
 	}
+
+	b.Logger().Info("performing existence check")
 
 	storageEntry, err := req.Storage.Get(ctx, req.Path)
 	if err != nil {
@@ -114,12 +114,12 @@ func (b *backend) accountExistenceCheck(ctx context.Context, req *logical.Reques
 //   - *logical.Response: Response containing the account address, or nil if not found
 //   - error: Any error encountered during the read operation
 func (b *backend) readAccount(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
-	b.Logger().Info("reading account", "path", req.Path)
-
 	// Validate inputs
 	if err := validateRequest(ctx, req); err != nil {
 		return nil, err
 	}
+
+	b.Logger().Info("reading account", "path", req.Path)
 
 	storageEntry, err := req.Storage.Get(ctx, req.Path)
 	if err != nil {
@@ -402,12 +402,12 @@ func keyToHexAccountData(key *ecdsa.PrivateKey) (*hexAccountData, error) {
 //   - *logical.Response: Response containing the list of account IDs
 //   - error: Any error encountered during the list operation
 func (b *backend) listAccountIDs(ctx context.Context, req *logical.Request, _ *framework.FieldData) (*logical.Response, error) {
-	b.Logger().Info("listing account IDs", "path", req.Path)
-
 	// Validate inputs
 	if err := validateRequest(ctx, req); err != nil {
 		return nil, err
 	}
+
+	b.Logger().Info("listing account IDs", "path", req.Path)
 
 	ids, err := req.Storage.List(ctx, req.Path)
 	if err != nil {
@@ -441,8 +441,6 @@ func (b *backend) listAccountIDs(ctx context.Context, req *logical.Request, _ *f
 //   - *logical.Response: Response containing the hex-encoded signature
 //   - error: Any error encountered during validation, key retrieval, or signing
 func (b *backend) sign(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	b.Logger().Info("signing some data", "path", req.Path)
-
 	// Validate inputs using helper function
 	if err := validateRequest(ctx, req); err != nil {
 		return nil, err
@@ -450,6 +448,8 @@ func (b *backend) sign(ctx context.Context, req *logical.Request, d *framework.F
 	if d == nil {
 		return nil, fmt.Errorf("field data cannot be nil")
 	}
+
+	b.Logger().Info("signing some data", "path", req.Path)
 
 	acctID, ok := d.GetOk("acctID")
 	if !ok {
